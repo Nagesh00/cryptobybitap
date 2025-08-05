@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bybit Trading Bot - Live Trading Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <style>
+        body { 
+            background: #0f1419; 
+            color: #ffffff; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .trading-card {
+            background: linear-gradient(135deg, #1a1f2e 0%, #16213e 100%);
+            border: 1px solid #2d3748;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .status-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .price-card {
+            background: linear-gradient(135deg, #1a1f2e 0%, #16213e 100%);
+            border: 1px solid #2d3748;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+        .price-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+        }
+        .profit { color: #00d4aa; }
+        .loss { color: #ff6b6b; }
+        .buy-signal { 
+            background: linear-gradient(135deg, #00d4aa, #20c997);
+            color: white;
+            border-radius: 8px;
+            padding: 5px 15px;
+            font-weight: bold;
+        }
+        .sell-signal { 
+            background: linear-gradient(135deg, #ff6b6b, #fd7e14);
+            color: white;
+            border-radius: 8px;
+            padding: 5px 15px;
+            font-weight: bold;
+        }
+        .hold-signal { 
+            background: linear-gradient(135deg, #6c757d, #adb5bd);
+            color: white;
+            border-radius: 8px;
+            padding: 5px 15px;
+            font-weight: bold;
+        }
+        .live-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            background: #00d4aa;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+            margin-right: 8px;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .trade-btn {
+            border-radius: 25px;
+            font-weight: bold;
+            padding: 10px 25px;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        .trade-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        .buy-btn {
+            background: linear-gradient(135deg, #00d4aa, #20c997);
+            border: none;
+            color: white;
+        }
+        .sell-btn {
+            background: linear-gradient(135deg, #ff6b6b, #e74c3c);
+            border: none;
+            color: white;
+        }
+        .chart-container {
+            background: #1a1f2e;
+            border-radius: 10px;
+            padding: 20px;
+            height: 400px;
+        }
+        .navbar-dark {
+            background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%) !important;
+            border-bottom: 2px solid #2d3748;
+        }
+        .table-dark {
+            background: #1a1f2e;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .badge-demo {
+            background: linear-gradient(135deg, #ffa726, #ff7043);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            animation: pulse 2s infinite;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #00d4aa;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">
+                <i class="fas fa-chart-line"></i> Bybit Trading Bot
+                <span class="live-indicator"></span>
+                <small class="text-success">LIVE TRADING</small>
+                <span id="demo-badge" class="badge-demo ms-3" style="display: none;">DEMO MODE</span>
+            </span>
+            <div class="d-flex align-items-center">
+                <span class="me-3">Auto Trading:</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="auto-trading-toggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- Status Cards Row -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="status-card">
+                    <h5><i class="fas fa-wallet"></i> Account Balance</h5>
+                    <h3 id="balance">$0.00</h3>
+                    <small>USDT</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="status-card">
+                    <h5><i class="fas fa-chart-line"></i> Total P&L</h5>
+                    <h3 id="total-pnl" class="profit">+$0.00</h3>
+                    <small>24h</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="status-card">
+                    <h5><i class="fas fa-exchange-alt"></i> Active Positions</h5>
+                    <h3 id="active-positions">0</h3>
+                    <small>Open Positions</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="status-card">
+                    <h5><i class="fas fa-clock"></i> Bot Uptime</h5>
+                    <h3 id="bot-uptime">00:00:00</h3>
+                    <small id="bot-status">RUNNING</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Market Data & Trading Row -->
+        <div class="row">
+            <!-- Market Prices -->
+            <div class="col-md-4">
+                <div class="trading-card">
+                    <h5><i class="fas fa-coins"></i> Live Market Prices</h5>
+                    <div id="market-prices">
+                        <!-- Dynamic market data will be inserted here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Trading -->
+            <div class="col-md-4">
+                <div class="trading-card">
+                    <h5><i class="fas fa-bolt"></i> Quick Trading</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Symbol</label>
+                        <select class="form-select" id="trade-symbol" style="background: #2d3748; color: white; border: 1px solid #4a5568;">
+                            <option value="BTCUSDT">BTC/USDT</option>
+                            <option value="ETHUSDT">ETH/USDT</option>
+                            <option value="ADAUSDT">ADA/USDT</option>
+                            <option value="XRPUSDT">XRP/USDT</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Quantity</label>
+                        <input type="number" class="form-control" id="trade-quantity" placeholder="0.001" step="0.001" style="background: #2d3748; color: white; border: 1px solid #4a5568;">
+                    </div>
+                    <div class="text-center">
+                        <button class="btn buy-btn trade-btn" onclick="executeTrade('Buy')">
+                            <i class="fas fa-arrow-up"></i> BUY
+                        </button>
+                        <button class="btn sell-btn trade-btn" onclick="executeTrade('Sell')">
+                            <i class="fas fa-arrow-down"></i> SELL
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trading Signals -->
+            <div class="col-md-4">
+                <div class="trading-card">
+                    <h5><i class="fas fa-signal"></i> Trading Signals</h5>
+                    <div id="trading-signals">
+                        <!-- Dynamic signals will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts & Positions Row -->
+        <div class="row mt-4">
+            <!-- Price Chart -->
+            <div class="col-md-8">
+                <div class="trading-card">
+                    <h5><i class="fas fa-chart-area"></i> Price Chart - <span id="chart-symbol">BTCUSDT</span></h5>
+                    <div class="chart-container">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Positions -->
+            <div class="col-md-4">
+                <div class="trading-card">
+                    <h5><i class="fas fa-list"></i> Current Positions</h5>
+                    <div id="positions-list" style="max-height: 400px; overflow-y: auto;">
+                        <!-- Dynamic positions will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trade History -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="trading-card">
+                    <h5><i class="fas fa-history"></i> Recent Trades</h5>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Symbol</th>
+                                    <th>Side</th>
+                                    <th>Size</th>
+                                    <th>Price</th>
+                                    <th>P&L</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trade-history">
+                                <!-- Dynamic trade history will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Socket.IO connection
+        const socket = io();
+
+        // Chart instance
+        let priceChart;
+
+        // Initialize chart
+        function initializeChart() {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            priceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Price',
+                        data: [],
+                        borderColor: '#00d4aa',
+                        backgroundColor: 'rgba(0, 212, 170, 0.1)',
+                        borderWidth: 2,
+                        fill: true
+                    }, {
+                        label: 'MA Short',
+                        data: [],
+                        borderColor: '#ffa726',
+                        borderWidth: 1,
+                        fill: false
+                    }, {
+                        label: 'MA Long',
+                        data: [],
+                        borderColor: '#ff7043',
+                        borderWidth: 1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#ffffff'
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            grid: {
+                                color: '#2d3748'
+                            },
+                            ticks: {
+                                color: '#ffffff'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: '#2d3748'
+                            },
+                            ticks: {
+                                color: '#ffffff'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update chart with new data
+        function updateChart(data) {
+            if (!priceChart || !data.price_history) return;
+            
+            const labels = data.price_history.map(point => {
+                const date = new Date(point.time);
+                return date.toLocaleTimeString();
+            });
+            
+            priceChart.data.labels = labels;
+            priceChart.data.datasets[0].data = data.price_history.map(point => point.price);
+            priceChart.data.datasets[1].data = data.price_history.map(point => point.ma_short);
+            priceChart.data.datasets[2].data = data.price_history.map(point => point.ma_long);
+            
+            priceChart.update('none');
+        }
+
+        // Socket event handlers
+        socket.on('connect', function() {
+            console.log('Connected to trading dashboard');
+            socket.emit('request_initial_data');
+        });
+
+        socket.on('bot_status', function(data) {
+            document.getElementById('balance').textContent = `$${data.balance.toFixed(2)}`;
+            document.getElementById('total-pnl').textContent = `${data.total_pnl >= 0 ? '+' : ''}$${data.total_pnl.toFixed(2)}`;
+            document.getElementById('total-pnl').className = data.total_pnl >= 0 ? 'profit' : 'loss';
+            document.getElementById('active-positions').textContent = data.active_positions;
+            document.getElementById('bot-uptime').textContent = data.uptime;
+            
+            // Show demo mode badge if in demo
+            const demoBadge = document.getElementById('demo-badge');
+            if (data.demo_mode) {
+                demoBadge.style.display = 'inline-block';
+            } else {
+                demoBadge.style.display = 'none';
+            }
+            
+            // Update auto trading toggle
+            document.getElementById('auto-trading-toggle').checked = data.auto_trading;
+        });
+
+        socket.on('market_data_update', function(data) {
+            updateMarketPrices(data);
+            updateTradingSignals(data);
+            
+            // Update chart for currently selected symbol
+            const currentSymbol = document.getElementById('chart-symbol').textContent;
+            if (data[currentSymbol]) {
+                updateChart(data[currentSymbol]);
+            }
+        });
+
+        socket.on('position_update', function(data) {
+            updatePositions(data.positions);
+        });
+
+        socket.on('trade_history_update', function(data) {
+            updateTradeHistory(data.trades);
+        });
+
+        // Update market prices display
+        function updateMarketPrices(marketData) {
+            const container = document.getElementById('market-prices');
+            container.innerHTML = '';
+            
+            Object.values(marketData).forEach(data => {
+                const changeClass = data.change_24h >= 0 ? 'profit' : 'loss';
+                const changeIcon = data.change_24h >= 0 ? 'fas fa-arrow-up' : 'fas fa-arrow-down';
+                
+                const priceCard = `
+                    <div class="price-card" onclick="selectSymbol('${data.symbol}')">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${data.symbol}</strong>
+                                <div class="small text-muted">$${data.price.toFixed(4)}</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="${changeClass}">
+                                    <i class="${changeIcon}"></i> ${data.change_24h.toFixed(2)}%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += priceCard;
+            });
+        }
+
+        // Update trading signals display
+        function updateTradingSignals(marketData) {
+            const container = document.getElementById('trading-signals');
+            container.innerHTML = '';
+            
+            Object.values(marketData).forEach(data => {
+                const signalClass = data.signal === 'BUY' ? 'buy-signal' : 
+                                  data.signal === 'SELL' ? 'sell-signal' : 'hold-signal';
+                
+                const signalCard = `
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>${data.symbol}</span>
+                            <span class="${signalClass}">${data.signal}</span>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += signalCard;
+            });
+        }
+
+        // Update positions display
+        function updatePositions(positions) {
+            const container = document.getElementById('positions-list');
+            
+            if (positions.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted">No open positions</div>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            positions.forEach(position => {
+                const pnlClass = position.unrealized_pnl >= 0 ? 'profit' : 'loss';
+                const positionCard = `
+                    <div class="mb-3 p-3" style="background: #2d3748; border-radius: 8px;">
+                        <div class="d-flex justify-content-between mb-2">
+                            <strong>${position.symbol}</strong>
+                            <span class="badge bg-${position.side === 'Buy' ? 'success' : 'danger'}">${position.side}</span>
+                        </div>
+                        <div class="small">
+                            <div>Size: ${position.size}</div>
+                            <div>Avg Price: $${position.avg_price}</div>
+                            <div class="${pnlClass}">P&L: $${position.unrealized_pnl.toFixed(2)} (${position.percentage.toFixed(2)}%)</div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += positionCard;
+            });
+        }
+
+        // Update trade history
+        function updateTradeHistory(trades) {
+            const tbody = document.getElementById('trade-history');
+            tbody.innerHTML = '';
+            
+            trades.forEach(trade => {
+                const pnlClass = trade.pnl >= 0 ? 'profit' : 'loss';
+                const sideClass = trade.side === 'Buy' ? 'text-success' : 'text-danger';
+                
+                const row = `
+                    <tr>
+                        <td>${trade.time}</td>
+                        <td>${trade.symbol}</td>
+                        <td class="${sideClass}">${trade.side}</td>
+                        <td>${trade.size}</td>
+                        <td>$${trade.price.toFixed(4)}</td>
+                        <td class="${pnlClass}">$${trade.pnl.toFixed(2)}</td>
+                        <td><span class="badge bg-${trade.status.includes('Demo') ? 'warning' : 'success'}">${trade.status}</span></td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        // Select symbol for chart
+        function selectSymbol(symbol) {
+            document.getElementById('chart-symbol').textContent = symbol;
+            document.getElementById('trade-symbol').value = symbol;
+        }
+
+        // Execute trade
+        function executeTrade(side) {
+            const symbol = document.getElementById('trade-symbol').value;
+            const quantity = parseFloat(document.getElementById('trade-quantity').value);
+            
+            if (!quantity || quantity <= 0) {
+                alert('Please enter a valid quantity');
+                return;
+            }
+            
+            fetch('/api/trade', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    symbol: symbol,
+                    side: side,
+                    quantity: quantity
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`${side} order executed successfully!`);
+                    document.getElementById('trade-quantity').value = '';
+                } else {
+                    alert(`Trade failed: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Trade error:', error);
+                alert('Trade execution failed');
+            });
+        }
+
+        // Toggle auto trading
+        document.getElementById('auto-trading-toggle').addEventListener('change', function() {
+            fetch('/api/toggle-auto-trading', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data.message);
+            })
+            .catch(error => {
+                console.error('Auto trading toggle error:', error);
+            });
+        });
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeChart();
+        });
+    </script>
+</body>
+</html>
