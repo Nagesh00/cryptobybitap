@@ -18,8 +18,13 @@ A complete cryptocurrency trading bot for Bybit exchange with moving average str
 ```
 bybit-trading-bot/
 ├── bot.py                    # Main bot file
+├── web_dashboard.py          # Web dashboard server
+├── start_dashboard.py        # Dashboard launcher
 ├── config.json              # Configuration file
 ├── requirements.txt         # Python dependencies
+├── web_requirements.txt     # Web dashboard dependencies
+├── templates/
+│   └── dashboard.html       # Web dashboard template
 ├── strategies/
 │   ├── __init__.py
 │   └── moving_average.py    # Moving average strategy
@@ -71,6 +76,18 @@ pip install -r requirements.txt
 
 ### 3. Run the Bot
 
+**Option 1: Web Dashboard (Recommended)**
+```powershell
+python start_dashboard.py
+```
+This will start a beautiful web interface at http://localhost:5000 with:
+- Real-time trading dashboard
+- Live price charts with moving averages
+- Account balance and P&L tracking
+- Trading signals and position monitoring
+- Trading history
+
+**Option 2: Command Line**
 ```powershell
 python bot.py
 ```

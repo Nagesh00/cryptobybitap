@@ -35,6 +35,13 @@ config.json
 logs/
 *.log
 
+# Flask/Web specific
+instance/
+.webassets-cache
+.coverage
+htmlcov/
+.pytest_cache/
+
 # IDE
 .vscode/settings.json
 .idea/
