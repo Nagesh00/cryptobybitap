@@ -58,13 +58,18 @@ class TradingBotWebInterface:
                 testnet=self.config.get('testnet', True)
             )
             
-            # Test connection
-            response = client.get_wallet_balance(accountType="UNIFIED")
-            if response['retCode'] == 0:
-                self.logger.info("Connected to Bybit API")
-                return client
-            else:
-                self.logger.error(f"API connection failed: {response['retMsg']}")
+            # Test connection with timeout handling
+            try:
+                response = client.get_wallet_balance(accountType="UNIFIED")
+                if response['retCode'] == 0:
+                    self.logger.info("Connected to Bybit API")
+                    return client
+                else:
+                    self.logger.error(f"API connection failed: {response['retMsg']}")
+                    return None
+            except Exception as conn_error:
+                self.logger.warning(f"API connection timeout: {conn_error}")
+                self.logger.info("Continuing in demo mode")
                 return None
                 
         except Exception as e:

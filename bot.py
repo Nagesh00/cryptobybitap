@@ -51,9 +51,16 @@ class BybitTradingBot:
                 testnet=self.config.get('testnet', True)
             )
             
-            # Test connection
-            balance = client.get_wallet_balance(accountType="UNIFIED")
-            self.logger.info(f"Connected to Bybit {'Testnet' if self.config.get('testnet') else 'Mainnet'}")
+            # Test connection with timeout handling
+            try:
+                balance = client.get_wallet_balance(accountType="UNIFIED")
+                if balance['retCode'] == 0:
+                    self.logger.info(f"Connected to Bybit {'Testnet' if self.config.get('testnet') else 'Mainnet'}")
+                else:
+                    self.logger.warning(f"API connection issue: {balance['retMsg']}")
+            except Exception as conn_error:
+                self.logger.warning(f"Initial connection test failed: {conn_error}")
+                self.logger.info("Bot will continue with limited connectivity")
             
             return client
             
